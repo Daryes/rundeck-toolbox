@@ -1,0 +1,94 @@
+# {{ ansible_managed }}
+# Single configuration file for all running JVM using jolokia
+
+{# Single template : will loop on each group of the current node looking for <group>_jvm variables, filling the full template #}
+{% for loopGroup in hostvars[inventory_hostname]['group_names'] %}
+{% if hostvars[inventory_hostname][loopGroup + '_jvm' ] is defined %}
+{% set loopOutput = hostvars[inventory_hostname][loopGroup + '_jvm' ] %}
+##########################################################################
+# Configuration for {{ loopOutput['appname'] }} JVM
+
+# Read JMX metrics through Jolokia
+[[inputs.jolokia2_agent]]
+  urls = [ "http://127.0.0.1:{{ loopOutput['jolokia_port'] }}/jolokia" ]
+{% if loopOutput['jolokia_user'] | default("") != "" %}
+
+  username = "{{ loopOutput['jolokia_user'] }}"
+  password = "{{ loopOutput['jolokia_password'] }}"
+{% endif %}
+
+  # response_timeout = "5s"
+
+  ## measurement name override, default is "jolokia"
+  name_override = "java"
+
+  ## additionnal tags on all this plugin instance metrics
+  [inputs.jolokia2_agent.tags]
+    jvm = "{{ loopOutput['appname'] }}"
+
+  ## List of metrics collected on above servers
+  ## Each metric consists in a name, a jmx path and either
+  ## a pass or drop slice attribute.
+
+  ## JVM runtine metrics
+  [[inputs.jolokia2_agent.metric]]
+    name  = "runtime"
+    mbean = "java.lang:type=Runtime"
+    paths = ["Uptime"]
+    field_prefix = "Runtime_"
+
+  ## JVM runtine version metrics
+  [[inputs.jolokia2_agent.metric]]
+    name  = "runtime_version"
+    mbean = "java.lang:type=Runtime"
+    paths = [ "SystemProperties/java.version", "SystemProperties/java.vm.specification.version" ]
+    field_prefix = "Runtime_"
+
+  ## heap memory usage metrics.
+  [[inputs.jolokia2_agent.metric]]
+    name  = "memory_heap"
+    mbean = "java.lang:type=Memory"
+    paths = ["HeapMemoryUsage", "NonHeapMemoryUsage", "ObjectPendingFinalizationCount"]
+    field_prefix = "Memory_"
+
+  [[inputs.jolokia2_agent.metrics]]
+    name     = "memory_pool"
+    mbean    = "java.lang:name=*,type=MemoryPool"
+    paths    = ["Usage", "PeakUsage", "CollectionUsage"]
+    tag_keys = ["name"]
+    tag_prefix = "pool_"
+    field_prefix = "MemoryPool_"
+
+  ## GC metrics
+  [[inputs.jolokia2_agent.metric]]
+    name     = "garbage_collector"
+    mbean    = "java.lang:name=*,type=GarbageCollector"
+    paths    = ["CollectionTime", "CollectionCount"]
+    tag_keys = ["name"]
+    tag_prefix = "gc_"
+    field_prefix = "GarbageCollector_"
+
+#  [[inputs.jolokia2_agent.metric]]
+#    name     = "garbage_collection_last"
+#    mbean    = "java.lang:name=*,type=GarbageCollector"
+#    paths    = ["LastGcInfo/duration", "LastGcInfo/GcThreadCount", "LastGcInfo/memoryUsageAfterGc"]
+#    tag_keys = ["name"]
+
+  ## thread counts metrics.
+  [[inputs.jolokia2_agent.metrics]]
+    name  = "threading"
+    mbean = "java.lang:type=Threading"
+    paths = ["TotalStartedThreadCount", "ThreadCount", "DaemonThreadCount", "PeakThreadCount"]
+    field_prefix = "Threading_"
+
+  ## class loaded/unloaded counts metrics.
+  [[inputs.jolokia2_agent.metrics]]
+    name  = "class_loading"
+    mbean = "java.lang:type=ClassLoading"
+    paths = ["LoadedClassCount", "UnloadedClassCount", "TotalLoadedClassCount"]
+    field_prefix = "ClassLoading_"
+
+##########################################################################
+
+{% endif %}
+{% endfor %}

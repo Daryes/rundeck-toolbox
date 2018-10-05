@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+
+# Read metrics from one or more commands that can output to stdout
+[[inputs.exec]]
+
+  ## Commands array
+  commands = [ "/etc/telegraf/plugins/rundeck.sh 'http://{{ rundeck_server }}:{{ rundeck_port }}' '{{ rundeck_monitoring_token }}' " ]
+
+  ## Timeout for each command to complete.
+  timeout = "30s"
+
+  ## Data format to consume.
+  ## Each data format has it's own unique set of configuration options, read
+  ## more about them here:
+  ## https://github.com/influxdata/telegraf/blob/master/docs/DATA_FORMATS_INPUT.md
+  data_format = "influx"
+

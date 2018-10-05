@@ -1,0 +1,13 @@
+---
+
+# template for a single application group using a JVM and Jolokia
+# store in <ansible config dir>/group_vars, named as the server group
+
+# App Java VM
+# uncomment user/password if used 
+<group name>_jvm:
+  appname: <name>
+  port: <app port>
+  jolokia_port: <jolokia port>
+#  jolokia_user:
+#  jolokia_password:
