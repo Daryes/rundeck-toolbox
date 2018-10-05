@@ -35,7 +35,7 @@ echoerr() { printf "%s\n" "$*" >&2; }
 outputDesc() {
 	if [ $# -ne 2 ]; then exit 1; fi
 	
-	printf "%-40s =>  %s\n" "$1" "$2" >> $BACKUP_DESC
+	printf "%-45s =>  %s\n" "$1" "$2" >> $BACKUP_DESC
 }
 
 # ----------------------------------------------------------------------------
@@ -61,7 +61,7 @@ echo "------------------------------------"
 
 # temp dir check
 if [ -d "$TMP_DIR" ]; then echoerr "Error: temp folder '$TMP_DIR' already exists"; exit 1; fi
-mkdir -p "$TMP_DIR"/{jobs,etc-rundeck} || exit 1
+mkdir -p "$TMP_DIR"/{jobs,projects,etc-rundeck} || exit 1
 
 # create backup dir
 if [ ! -d "$BACKUP_DIR" ]; then mkdir -p "$BACKUP_DIR" || exit 1; fi
@@ -70,8 +70,8 @@ if [ ! -d "$BACKUP_DIR" ]; then mkdir -p "$BACKUP_DIR" || exit 1; fi
 # backup project dir
 echo ""
 echo "backup: $RDECK_PROJECTS ..."
-cp -ar "$RDECK_PROJECTS" "$TMP_DIR/projects"
-outputDesc "projects" "$RDECK_PROJECTS"
+cp -ar "$RDECK_PROJECTS" "$TMP_DIR/projects-data"
+outputDesc "#Only for specific restore: projects-data" "$RDECK_PROJECTS"
 
 
 # backup job definitions
@@ -84,10 +84,16 @@ RUND_PROJECTS=$( echo "$RUND_PROJECTS" | grep -v '^#' |grep -v "^ *$" )
 
 while read -r sCurrentProject; do
 	echo "=> Saving project $sCurrentProject ..."
+    rd projects archives export -f "$TMP_DIR/projects/$sCurrentProject.zip" -p "$sCurrentProject"
+    if [ $? -ne 0 ]; then exit 1; fi
+    
+    outputDesc "projects/$sCurrentProject.zip" "rd projects archives import -f \"$sCurrentProject.zip\" -p \"$sCurrentProject\" [--include-acl] [--include-config]"
+    
+    # export also job defs for single restore using the name instead of the uuid
 	rd jobs list -f "$TMP_DIR/jobs/$sCurrentProject.xml" -p "$sCurrentProject"
 	if [ $? -ne 0 ]; then exit 1; fi
 
-	outputDesc "jobs/$sCurrentProject.xml" "rd jobs load -f \"jobs/$sCurrentProject.xml\" -p \"$sCurrentProject\" "
+	outputDesc "#Only for specific restore: jobs/$sCurrentProject.xml" "rd jobs load -f \"jobs/$sCurrentProject.xml\" -p \"$sCurrentProject\" "
 	
 done <<< "$RUND_PROJECTS"	
 
@@ -120,6 +126,8 @@ echo "backup: tools directory ..."
 cp -ar $RUND_TOOLDIR "$TMP_DIR/"        || exit 1
 outputDesc "tools" "$RUND_TOOLDIR"
 
+#sorting BACKUP_DESC before the archive build
+sort $BACKUP_DESC --output=$BACKUP_DESC
 
 echo ""
 echo "Creating archive: $BACKUP_DIR/$BACKUP_FILE ..."
